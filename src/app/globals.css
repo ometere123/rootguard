@@ -10,7 +10,7 @@ a { color:inherit; }
 .text-link, .back-link { display:inline-flex; align-items:center; gap:6px; color:inherit; font:700 12px monospace; text-decoration:none; border-bottom:1px solid var(--ink); padding-bottom:3px; }
 .rg-shell { min-height:100vh; }
 .rg-header { min-height:72px; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:0 5.5vw; border-bottom:1px solid var(--line); background:#f4f3ed; position:sticky; top:0; z-index:10; }
-.rg-mark { display:flex; align-items:center; gap:10px; text-decoration:none; font-weight:800; letter-spacing:2px; }
+.rg-mark { display:flex; align-items:center; gap:10px; text-decoration:none; font-weight:800; letter-spacing:2px; }.rootguard-mark { color:var(--ink); flex:none; }
 .rg-header nav { display:flex; gap:22px; font-size:13px; font-weight:700; }
 .rg-header nav a { text-decoration:none; padding-bottom:4px; border-bottom:2px solid transparent; }.rg-header nav a.active-nav { border-color:var(--acid); }
 .rg-wallet { display:flex; align-items:center; gap:7px; font-size:12px; font-family:monospace; }
