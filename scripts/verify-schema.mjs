@@ -1,10 +1,10 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
-const address = process.env.NEXT_PUBLIC_ROOTGUARD_CONTRACT;
+const address = process.env.NEXT_PUBLIC_ROOTGUARD_CONTRACT ?? "0x37F3bB574128909BD1bbed78343f1622AB07DF4F";
 const endpoint = process.env.NEXT_PUBLIC_GENLAYER_ENDPOINT ?? "https://studio.genlayer.com/api";
 const required = [
-  "register_target", "set_maintainer", "submit_upgrade", "review_upgrade", "open_challenge",
+  "enroll_target", "set_maintainer", "submit_upgrade", "review_upgrade", "open_challenge",
   "review_challenge", "execute_upgrade", "confirm_execution", "deactivate_target", "get_summary",
   "get_target", "get_proposal", "list_targets", "list_proposals", "get_profile",
 ];

@@ -1,6 +1,6 @@
 "use client";
 
-import { createAccount, createClient } from "genlayer-js";
+import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 import type { CalldataEncodable, TransactionHash } from "genlayer-js/types";
@@ -11,70 +11,56 @@ const explorer = "https://explorer-studio.genlayer.com";
 
 export type Summary = Record<string, string>;
 export type Target = Record<string, string | boolean>;
-export type Proposal = Record<string, string>;
+export type Proposal = Record<string, string | boolean>;
+export type Ledger = { summary: Summary; targets: Target[]; proposals: Proposal[] };
 
 export const txUrl = (hash: string) => `${explorer}/tx/${hash}`;
 export const addressUrl = (address: string) => `${explorer}/address/${address}`;
 
-function readClient() {
-  return createClient({ chain: studionet, endpoint });
+function client(account?: `0x${string}`) {
+  return createClient({ chain: studionet, endpoint, account, provider: typeof window === "undefined" ? undefined : window.ethereum });
 }
 
-export async function readContract<T>(functionName: string, args: CalldataEncodable[] = []): Promise<T | undefined> {
-  if (!CONTRACT_ADDRESS) return undefined;
+function configuredAddress(): `0x${string}` {
+  if (!CONTRACT_ADDRESS || /^0x0{40}$/i.test(CONTRACT_ADDRESS)) throw new Error("RootGuard contract not configured.");
+  return CONTRACT_ADDRESS;
+}
+
+export async function readContract<T>(functionName: string, args: CalldataEncodable[] = []): Promise<T> {
   try {
-    return await readClient().readContract({ address: CONTRACT_ADDRESS, functionName, args }) as T;
-  } catch {
-    return undefined;
+    return await client().readContract({ address: configuredAddress(), functionName, args }) as T;
+  } catch (error) {
+    throw new Error(`Unable to read RootGuard on StudioNet: ${error instanceof Error ? error.message : "RPC request failed."}`);
   }
 }
 
-export async function loadLedger() {
+export async function loadLedger(): Promise<Ledger> {
   const [summary, targets, proposals] = await Promise.all([
     readContract<Summary>("get_summary"),
     readContract<Target[]>("list_targets", [0n, 50n]),
-    readContract<Proposal[]>("list_proposals", ["", 0n, 100n]),
+    readContract<Proposal[]>("list_proposals", ["", 0n, 50n]),
   ]);
-  return { summary, targets: targets ?? [], proposals: proposals ?? [] };
+  return { summary, targets, proposals };
 }
 
-export async function writeRootGuard(
-  privateKey: `0x${string}` | undefined,
-  injectedAddress: `0x${string}` | undefined,
-  functionName: string,
-  args: CalldataEncodable[],
-) {
-  if (!CONTRACT_ADDRESS) throw new Error("Set NEXT_PUBLIC_ROOTGUARD_CONTRACT before sending a transaction.");
-  const provider = typeof window !== "undefined" ? window.ethereum : undefined;
-  const account = privateKey ? createAccount(privateKey) : injectedAddress;
-  if (!account) throw new Error("Connect a wallet before sending a transaction.");
-  const client = createClient({ chain: studionet, endpoint, account, provider });
-  await client.connect("studionet");
-  const hash = await client.writeContract({
-    address: CONTRACT_ADDRESS,
-    functionName,
-    args,
-    value: 0n,
-    consensusMaxRotations: 3,
-  }) as TransactionHash;
-  return hash;
+export async function writeContract(address: `0x${string}`, account: `0x${string}`, functionName: string, args: CalldataEncodable[]) {
+  const writer = client(account);
+  await writer.connect("studionet");
+  return await writer.writeContract({ address, functionName, args, value: 0n, consensusMaxRotations: 3 }) as TransactionHash;
 }
 
-export async function waitFinalized(privateKey: `0x${string}` | undefined, injectedAddress: `0x${string}` | undefined, hash: TransactionHash) {
-  const provider = typeof window !== "undefined" ? window.ethereum : undefined;
-  const account = privateKey ? createAccount(privateKey) : injectedAddress;
-  if (!account) throw new Error("Wallet connection is unavailable.");
-  const client = createClient({ chain: studionet, endpoint, account, provider });
-  await client.connect("studionet");
-  const receipt = await client.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, interval: 5000, retries: 90 });
-  const transaction = await client.getTransaction({ hash });
-  const result = transaction?.consensus_data?.leader_receipt?.[0]?.execution_result;
-  if (result && result !== "SUCCESS") throw new Error(`Contract execution failed (${result}).`);
-  return receipt;
+export async function writeRootGuard(account: `0x${string}`, functionName: string, args: CalldataEncodable[]) {
+  return writeContract(configuredAddress(), account, functionName, args);
 }
 
-declare global {
-  interface Window {
-    ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
-  }
+export async function waitFinalized(account: `0x${string}`, hash: TransactionHash) {
+  const writer = client(account);
+  await writer.connect("studionet");
+  await writer.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, interval: 5000, retries: 180 });
+  const transaction = await writer.getTransaction({ hash });
+  const execution = transaction?.consensus_data?.leader_receipt?.[0]?.execution_result;
+  if (execution && execution !== "SUCCESS") throw new Error(`Finalized transaction rolled back (${execution}).`);
+  return { transaction, triggered: (transaction as unknown as { triggered_transactions?: string[] } | undefined)?.triggered_transactions ?? [] };
 }
+
+declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }; } }
