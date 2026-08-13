@@ -68,6 +68,8 @@ Protected target owner
 | Item | Value |
 | --- | --- |
 | Network | StudioNet |
+| Production console | `https://rootguard.vercel.app` |
+| Vercel deployment | `dpl_bhrYe9zFWunf46EzyDtaUkvPoMwK` |
 | Immutable V1/V2 source commit | `54f8c8c6b8fdb4652d5b6c8d823d86009c0e4ebc` |
 | RootGuard | `0x37F3bB574128909BD1bbed78343f1622AB07DF4F` |
 | Protected target | `0x6aCae084213c59c9FED1d7097001C55FA0E347D6` |

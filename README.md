@@ -4,6 +4,8 @@ RootGuard is a GenLayer-native upgrade authority for intelligent contracts. A pr
 
 **Live StudioNet RootGuard:** [`0x37F3bB574128909BD1bbed78343f1622AB07DF4F`](https://explorer-studio.genlayer.com/address/0x37F3bB574128909BD1bbed78343f1622AB07DF4F)
 
+**Production console:** [rootguard.vercel.app](https://rootguard.vercel.app)
+
 ## The trust problem
 
 An administrator key can normally replace an upgradeable contract's production code immediately. Users must trust that key holder to review the change correctly, preserve storage and authority, and publish the exact code it installed. A multisig improves who approves a change, but it does not independently establish what arbitrary source code does.
