@@ -1,5 +1,14 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
+import { existsSync, readFileSync } from "node:fs";
+
+for (const file of [".env.local", ".env"]) {
+  if (!existsSync(file)) continue;
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
+  }
+}
 
 const address = process.env.NEXT_PUBLIC_ROOTGUARD_CONTRACT ?? "0x37F3bB574128909BD1bbed78343f1622AB07DF4F";
 const endpoint = process.env.NEXT_PUBLIC_GENLAYER_ENDPOINT ?? "https://studio.genlayer.com/api";
