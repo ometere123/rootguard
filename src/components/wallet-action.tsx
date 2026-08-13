@@ -1,20 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useWallet } from "@/components/wallet-provider";
 import { CONTRACT_ADDRESS, waitFinalized, writeContract, writeRootGuard } from "@/lib/rootguard";
 import type { CalldataEncodable } from "genlayer-js/types";
 import type { Tx } from "@/components/transaction-list";
 
 export function useWalletAction(onFinalized?: () => Promise<void> | void) {
-  const [wallet, setWallet] = useState<`0x${string}`>();
   const [error, setError] = useState<string>();
   const [transactions, setTransactions] = useState<Tx[]>([]);
-  async function connect() {
-    if (!window.ethereum) throw new Error("No injected GenLayer-compatible wallet was found.");
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as `0x${string}`[];
-    if (!accounts[0]) throw new Error("Wallet returned no account.");
-    setWallet(accounts[0]); return accounts[0];
-  }
+  const { address: wallet, connect } = useWallet();
   async function send(label: string, functionName: string, args: CalldataEncodable[], address?: `0x${string}`) {
     try {
       setError(undefined);
