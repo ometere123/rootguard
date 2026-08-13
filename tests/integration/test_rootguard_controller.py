@@ -10,7 +10,7 @@ from gltest.utils import extract_contract_address
 
 
 CONTRACTS = Path(__file__).parents[2] / "contracts"
-COMMIT = "54f8c8c6b8fdb4652d5b6c8d823d86009c0e4ebc"
+COMMIT = "e499c086113ce76aaeae9218efb9691cdd6dab01"
 V1_URL = f"https://raw.githubusercontent.com/ometere123/rootguard/{COMMIT}/contracts/ProtectedCounterV1.py"
 V2_URL = f"https://raw.githubusercontent.com/ometere123/rootguard/{COMMIT}/contracts/ProtectedCounterV2.py"
 CHARTER = (
@@ -98,6 +98,18 @@ def test_main_rootguard_full_finalized_upgrade_lifecycle_on_studionet():
     assert target["current_source_sha256"] == hashlib.sha256((CONTRACTS / "ProtectedCounterV1.py").read_bytes()).hexdigest()
     assert target["sole_rootguard_authority"] is True
 
+    # A syntactically valid but nonexistent commit-pinned candidate must fail
+    # before RootGuard records any proposal or occupies this target.
+    bad_candidate = f"https://raw.githubusercontent.com/ometere123/rootguard/{COMMIT}/contracts/DoesNotExist.py"
+    bad_candidate_tx = rootguard.submit_upgrade(args=["missing-v2", "counter-main", bad_candidate, "v2", SUMMARY]).transact(
+        wait_transaction_status=TransactionStatus.FINALIZED, wait_interval=5000, wait_retries=180
+    )
+    assert not tx_execution_succeeded(bad_candidate_tx), bad_candidate_tx
+    _record("ADVERSE_CANDIDATE_PREFLIGHT", bad_candidate_tx)
+    after_bad_candidate = rootguard.get_target(args=["counter-main"]).call()
+    assert after_bad_candidate["active_proposal_id"] == ""
+    assert after_bad_candidate["proposal_count"] == "0"
+
     proposal_tx = rootguard.submit_upgrade(args=["counter-v2", "counter-main", V2_URL, "v2", SUMMARY]).transact(
         wait_transaction_status=TransactionStatus.FINALIZED, wait_interval=5000, wait_retries=180
     )
@@ -123,6 +135,18 @@ def test_main_rootguard_full_finalized_upgrade_lifecycle_on_studionet():
     assert reviewed["external_calls_safe"] is True
     assert reviewed["charter_compliant"] is True
     assert reviewed["critical_risk"] is False
+
+    # Invalid evidence cannot consume the one challenge or leave the proposal
+    # stuck in CHALLENGED because RootGuard fetches before changing state.
+    bad_challenge = f"https://raw.githubusercontent.com/ometere123/rootguard/{COMMIT}/contracts/NoChallengeEvidence.txt"
+    bad_challenge_tx = rootguard.open_challenge(args=["counter-v2", bad_challenge, "This evidence path is deliberately absent to prove preflight liveness without changing proposal state."]).transact(
+        wait_transaction_status=TransactionStatus.FINALIZED, wait_interval=5000, wait_retries=180
+    )
+    assert not tx_execution_succeeded(bad_challenge_tx), bad_challenge_tx
+    _record("ADVERSE_CHALLENGE_PREFLIGHT", bad_challenge_tx)
+    after_bad_challenge = rootguard.get_proposal(args=["counter-v2"]).call()
+    assert after_bad_challenge["status"] == "APPROVED_CHALLENGE_WINDOW"
+    assert after_bad_challenge["challenge_used"] is False
 
     # The production contract floor is five minutes. Wait for its on-chain deadline rather than weakening it.
     while True:
